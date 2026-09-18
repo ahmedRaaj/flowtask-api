@@ -1,16 +1,40 @@
-FlowTask is a web-based task management application designed to help individuals and teams organize their work efficiently. With FlowTask, users can create, assign, and track tasks in a collaborative environment, ensuring that projects are completed on time and within scope.
-Prerequisites:
---java 21 or higher
---maven 3.8 or higher
+# FlowTask API
 
-How to run the application:
-1. Clone the repository to your local machine.
-2. Navigate to the project directory.
-3. Build the project using Maven:
+FlowTask is a task-management application for busy professionals who want one reliable place to capture, prioritize, and complete their personal tasks without missing deadlines.
 
+This repository contains the Spring Boot backend API. The initial MVP supports the task lifecycle: create, view, edit, complete or reopen, and permanently delete a task. Authentication, team collaboration, projects, tags, reminders, uploads, and cloud deployment are planned for later iterations.
 
-Health Check endpoint:
--- http://localhost:8080/actuator/health
+## Prerequisites
 
-Ping endpoint:
--- http://localhost:8080/v1/api/tasks/ping
+- Java 21
+- Maven 3.8+ (the included Maven Wrapper is recommended)
+
+## Run locally
+
+From the repository root:
+
+```bash
+./mvnw spring-boot:run
+```
+
+The API starts at `http://localhost:8080`.
+
+## Test
+
+```bash
+./mvnw test
+```
+
+## Available endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /actuator/health` | Application health check |
+| `GET /api/v1/tasks/ping` | Confirms that the versioned task API is running |
+
+Example ping response:
+
+```json
+{
+  "message": "Ping successful!"
+}
