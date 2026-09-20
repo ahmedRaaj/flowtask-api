@@ -1,4 +1,4 @@
-## Description
+## Summary
 
 <!-- Summarize the change and why it's needed. -->
 
@@ -14,23 +14,27 @@
 - [ ] Documentation update
 - [ ] Refactor / chore
 
-## Summary of Changes
-<-- Provide a brief summary of the changes made in this pull request. -->
+## What changed
 
-## What has been changed?
-<-- List the specific changes made in this pull request. -->
+<!-- List the specific changes made in this pull request. -->
 
-## How Has This Been Tested?
+## How I tested it
 
 <!-- Describe the tests you ran, e.g. `./mvnw test`, manual verification steps. -->
 
-## Risk and Trade-offs
-<-- Describe any potential risks or trade-offs associated with this change. -->
+## Screenshots
+
+<!-- Required for visible frontend changes. Otherwise write N/A. -->
+
+## Risks and trade-offs
+
+<!-- Describe any potential risks or trade-offs associated with this change. -->
 
 ## Checklist
 
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally (`./mvnw test`)
-- [ ] I have updated documentation where relevant
+- [ ] I performed a self-review.
+- [ ] Relevant tests pass locally.
+- [ ] Required build and test checks pass locally.
+- [ ] Documentation is updated where relevant.
+- [ ] Screenshots are attached for visible UI changes, or marked N/A.
+- [ ] No secrets, IDE configuration, build output, or unrelated files are included.
