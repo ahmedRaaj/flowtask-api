@@ -19,6 +19,40 @@ From the repository root:
 
 The API starts at `http://localhost:8080`.
 
+## Database (Docker Compose)
+
+A local PostgreSQL instance is provided via `compose.yaml` (works with OrbStack, Docker Desktop, or any Docker-compatible engine).
+
+1. Copy the example environment file and adjust the values if you like:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   `.env` holds your local database credentials and is git-ignored — never commit real credentials or use them for production.
+
+2. Start PostgreSQL:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   This creates the `flowtask` database, exposes it on `localhost:5432`, persists data in the named volume `flowtask-postgres-data`, and runs a health check (`pg_isready`) so dependent services can wait until the database is ready.
+
+3. Check status:
+
+   ```bash
+   docker compose ps
+   ```
+
+4. Stop the database (data is preserved in the volume):
+
+   ```bash
+   docker compose down
+   ```
+
+   To also delete the stored data, add `-v` (`docker compose down -v`).
+
 ## Test
 
 ```bash
