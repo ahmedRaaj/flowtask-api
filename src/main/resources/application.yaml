@@ -2,9 +2,9 @@ spring:
   application:
     name: flowtask-api
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:flowtask}
-    username: ${DB_USERNAME:flowtask}
-    password: ${DB_PASSWORD:flowtask}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:flowtask}
+    username: ${POSTGRES_USER:ahmedraaj}
+    password: ${POSTGRES_PASSWORD:ahmedraaj}
   jpa:
     hibernate:
       ddl-auto: validate
