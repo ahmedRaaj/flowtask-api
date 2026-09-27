@@ -6,6 +6,7 @@ import com.flowtask.api.domain.TaskPriority;
 import com.flowtask.api.domain.TaskStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.ConstraintViolationException;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -55,7 +56,8 @@ class TaskRepositoryTest {
     }
 
     @Test
-    void updatingTaskBumpsUpdatedAtButNotCreatedAt() throws InterruptedException {
+    @SneakyThrows
+    void updatingTaskBumpsUpdatedAtButNotCreatedAt() {
         Task saved = taskRepository.saveAndFlush(new Task("Refactor service layer"));
         var createdAt = saved.getCreatedAt();
 
