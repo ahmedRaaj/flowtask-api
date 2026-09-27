@@ -1,3 +1,13 @@
 spring:
   application:
     name: flowtask-api
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:flowtask}
+    username: ${POSTGRES_USER:ahmedraaj}
+    password: ${POSTGRES_PASSWORD:ahmedraaj}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    locations: classpath:db/migration
