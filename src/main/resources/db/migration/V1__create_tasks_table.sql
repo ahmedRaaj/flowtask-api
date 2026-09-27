@@ -9,6 +9,7 @@ CREATE TABLE tasks
     completed_at TIMESTAMPTZ,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT chk_tasks_title_not_blank CHECK (title ~ '[^[:space:]]'),
     CONSTRAINT chk_tasks_status CHECK (status IN ('OPEN', 'COMPLETED')),
     CONSTRAINT chk_tasks_priority CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW'))
 );

@@ -15,7 +15,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,11 +32,9 @@ public class Task {
 
     @NotBlank
     @Column(nullable = false)
-    @Setter
     private String title;
 
     @Column(columnDefinition = "text")
-    @Setter
     private String description;
 
     // No setter: status only changes via complete()/reopen() to enforce
@@ -50,10 +47,8 @@ public class Task {
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    @Setter
     private TaskPriority priority = TaskPriority.MEDIUM;
 
-    @Setter
     private LocalDate deadline;
 
     @Column(name = "completed_at")
@@ -67,6 +62,26 @@ public class Task {
 
     public Task(String title) {
         this.title = title;
+    }
+
+    public void setTitle(String title) {
+        ensureEditable();
+        this.title = title;
+    }
+
+    public void setDescription(String description) {
+        ensureEditable();
+        this.description = description;
+    }
+
+    public void setPriority(TaskPriority priority) {
+        ensureEditable();
+        this.priority = priority;
+    }
+
+    public void setDeadline(LocalDate deadline) {
+        ensureEditable();
+        this.deadline = deadline;
     }
 
     @PrePersist
@@ -95,6 +110,12 @@ public class Task {
     public void reopen() {
         this.status = TaskStatus.OPEN;
         this.completedAt = null;
+    }
+
+    private void ensureEditable() {
+        if (status == TaskStatus.COMPLETED) {
+            throw new IllegalStateException("Completed tasks must be reopened before they can be edited");
+        }
     }
 
     /**
