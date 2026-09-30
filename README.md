@@ -73,7 +73,7 @@ com.flowtask.api
     └── web/         Controller, request/response DTOs, mapper
 ```
 
-New features (e.g. `project/`) are added as sibling packages following the same shape.
+New features (e.g. `project/`) are added as sibling packages following the same shape. Significant design decisions are recorded as ADRs in `docs/adr/`.
 
 ## Available endpoints
 
@@ -84,6 +84,14 @@ New features (e.g. `project/`) are added as sibling packages following the same 
 | `POST /api/v1/tasks` | Creates a task |
 | `GET /api/v1/tasks` | Lists all tasks |
 | `GET /api/v1/tasks/{id}` | Retrieves one task |
+| `PUT /api/v1/tasks/{id}` | Replaces a task's editable details |
+| `POST /api/v1/tasks/{id}/complete` | Marks a task completed |
+| `POST /api/v1/tasks/{id}/reopen` | Reopens a completed task |
+| `DELETE /api/v1/tasks/{id}` | Permanently deletes a task |
+
+The design choices behind these endpoints — PUT instead of PATCH, action endpoints for status changes, idempotency, hard delete, and optimistic locking — are recorded in [ADR 0001](docs/adr/0001-task-update-and-deletion-semantics.md).
+
+### Create a task
 
 Create a task by sending a nonblank title of at most 255 characters (surrounding whitespace is trimmed). Description (at most 5,000 characters), priority, and deadline are optional; priority defaults to `MEDIUM`, and new tasks start with `OPEN` status.
 
@@ -101,7 +109,7 @@ Content-Type: application/json
 }
 ```
 
-The API responds with `201 Created`, a `Location` header for the new resource, and its representation:
+The API responds with `201 Created`, a `Location` header for the new resource, an `ETag` header, and its representation:
 
 ```json
 {
@@ -114,15 +122,68 @@ The API responds with `201 Created`, a `Location` header for the new resource, a
   "completedAt": null,
   "createdAt": "2026-09-27T08:00:00Z",
   "updatedAt": "2026-09-27T08:00:00Z",
-  "overdue": false
+  "overdue": false,
+  "version": 0
 }
 ```
 
-`GET /api/v1/tasks` returns all tasks as a JSON array, newest first. `GET /api/v1/tasks/{id}` returns one task.
+`GET /api/v1/tasks` returns all tasks as a JSON array, newest first. `GET /api/v1/tasks/{id}` returns one task with its `ETag`.
+
+### Edit a task
+
+`PUT` replaces all editable details at once. `title` and `priority` are required; `description` and `deadline` are cleared when omitted or `null`. Status cannot be changed here — use the complete/reopen actions. Completed tasks must be reopened before they can be edited (`409 Conflict`).
+
+```http
+PUT /api/v1/tasks/1
+Content-Type: application/json
+If-Match: "0"
+```
+
+```json
+{
+  "title": "Prepare v2 release",
+  "description": "Review the release checklist",
+  "priority": "HIGH",
+  "deadline": "2026-10-15"
+}
+```
+
+The response is `200 OK` with the updated task and a new `ETag` (here `"1"`). `PATCH` is intentionally not supported and returns `405 Method Not Allowed`.
+
+### Complete, reopen, and delete
+
+```http
+POST /api/v1/tasks/1/complete
+POST /api/v1/tasks/1/reopen
+DELETE /api/v1/tasks/1
+```
+
+`complete` and `reopen` return `200 OK` with the updated task. Both are idempotent: completing an already completed task keeps its original `completedAt`, and reopening an open task changes nothing. `DELETE` returns `204 No Content`; deletion is permanent, applies to open and completed tasks, and a repeated delete returns `404 Not Found`.
+
+### Concurrency (ETag / If-Match)
+
+Every single-task response carries an `ETag`: the task's `version` (also in the body), with an `-overdue` suffix while the task is overdue, e.g. `"5"` or `"5-overdue"`. Send it back in an optional `If-Match` header on `PUT`, `complete`, `reopen`, or `DELETE` to make the change conditional:
+
+- matching version → the request proceeds (the `-overdue` suffix is ignored for this comparison);
+- stale version → `412 Precondition Failed` and nothing changes; reload the task and retry;
+- no header or `If-Match: *` → unconditional (last write wins);
+- weak, multiple, or malformed tags → `400 Bad Request`.
+
+A write that races with another request between read and commit returns `409 Conflict`. `GET /api/v1/tasks/{id}` with a matching `If-None-Match` returns `304 Not Modified`.
 
 ### Errors
 
-Errors use the [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` format. An unknown task ID returns `404 Not Found`; invalid input returns `400 Bad Request`, with validation failures listed per field:
+Errors use the [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` format:
+
+| Status | Meaning |
+| --- | --- |
+| `400 Bad Request` | Validation failure, malformed JSON, non-numeric ID, or unsupported `If-Match` |
+| `404 Not Found` | The task does not exist |
+| `405 Method Not Allowed` | Unsupported method, e.g. `PATCH` |
+| `409 Conflict` | Editing a completed task, or a concurrent modification |
+| `412 Precondition Failed` | `If-Match` does not match the task's current version |
+
+Validation failures are listed per field:
 
 ```json
 {

@@ -2,6 +2,7 @@ package com.flowtask.api.task.web;
 
 import com.flowtask.api.task.CreateTaskCommand;
 import com.flowtask.api.task.Task;
+import com.flowtask.api.task.UpdateTaskCommand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +19,10 @@ class TaskMapper {
         return new CreateTaskCommand(request.title(), request.description(), request.priority(), request.deadline());
     }
 
+    UpdateTaskCommand toCommand(UpdateTaskRequest request) {
+        return new UpdateTaskCommand(request.title(), request.description(), request.priority(), request.deadline());
+    }
+
     TaskResponse toResponse(Task task) {
         return new TaskResponse(
                 task.getId(),
@@ -29,7 +34,8 @@ class TaskMapper {
                 task.getCompletedAt(),
                 task.getCreatedAt(),
                 task.getUpdatedAt(),
-                task.isOverdue(LocalDate.now(clock))
+                task.isOverdue(LocalDate.now(clock)),
+                task.getVersion()
         );
     }
 }

@@ -16,6 +16,7 @@ public record TaskResponse(
         Instant completedAt,
         Instant createdAt,
         Instant updatedAt,
-        boolean overdue
+        boolean overdue,
+        long version
 ) {
 }
