@@ -1,4 +1,4 @@
-package com.flowtask.api.domain;
+package com.flowtask.api.task;
 
 /**
  * Persisted task status. "Overdue" is intentionally not a stored status here —

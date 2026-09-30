@@ -11,7 +11,8 @@ CREATE TABLE tasks
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT chk_tasks_title_not_blank CHECK (title ~ '[^[:space:]]'),
     CONSTRAINT chk_tasks_status CHECK (status IN ('OPEN', 'COMPLETED')),
-    CONSTRAINT chk_tasks_priority CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW'))
+    CONSTRAINT chk_tasks_priority CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW')),
+    CONSTRAINT chk_tasks_completed_at CHECK ((status = 'COMPLETED') = (completed_at IS NOT NULL))
 );
 
 CREATE INDEX idx_tasks_status ON tasks (status);
