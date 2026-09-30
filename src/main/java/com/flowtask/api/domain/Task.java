@@ -64,6 +64,26 @@ public class Task {
         this.title = title;
     }
 
+    /**
+     * Builds a new task from client-supplied creation fields, applying the
+     * same default status/priority as the no-args path. Owning this here
+     * (rather than in the service layer) keeps creation invariants with the
+     * entity that enforces them.
+     */
+    public static Task create(NewTaskDetails details) {
+        Task task = new Task(details.title());
+        if (details.description() != null) {
+            task.setDescription(details.description());
+        }
+        if (details.priority() != null) {
+            task.setPriority(details.priority());
+        }
+        if (details.deadline() != null) {
+            task.setDeadline(details.deadline());
+        }
+        return task;
+    }
+
     public void setTitle(String title) {
         ensureEditable();
         this.title = title;
