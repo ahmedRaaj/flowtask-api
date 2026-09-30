@@ -1,4 +1,4 @@
-package com.flowtask.api.controller.dto;
+package com.flowtask.api.task.web;
 
 public record PingResponse(String message) {
 }

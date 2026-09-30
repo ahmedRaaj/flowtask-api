@@ -1,7 +1,7 @@
-package com.flowtask.api.controller.dto;
+package com.flowtask.api.task.web;
 
-import com.flowtask.api.domain.TaskPriority;
-import com.flowtask.api.domain.TaskStatus;
+import com.flowtask.api.task.TaskPriority;
+import com.flowtask.api.task.TaskStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;

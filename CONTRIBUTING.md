@@ -23,7 +23,7 @@ The API starts at `http://localhost:8080`.
 
 1. **Search existing issues** before opening a new one to avoid duplicates.
 2. **Open an issue** to discuss significant changes before starting work, unless it's a small fix.
-3. **Fork the repository** and create a short-lived branch off current `main`:
+3. **Fork the repository** and create a short-lived branch off current `master`:
    ```bash
    git switch -c feat/short-description
    ```
@@ -33,7 +33,7 @@ The API starts at `http://localhost:8080`.
    ```bash
    ./mvnw test
    ```
-7. **Push your branch** and open a pull request against `main`.
+7. **Push your branch** and open a pull request against `master`.
 
 ## Branch and Commit Conventions
 

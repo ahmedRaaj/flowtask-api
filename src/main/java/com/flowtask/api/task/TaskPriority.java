@@ -1,4 +1,4 @@
-package com.flowtask.api.domain;
+package com.flowtask.api.task;
 
 public enum TaskPriority {
     HIGH,

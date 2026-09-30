@@ -1,20 +1,23 @@
-package com.flowtask.api.domain;
+package com.flowtask.api.task;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,18 +25,24 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "tasks")
+@EntityListeners(AuditingEntityListener.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Task {
+
+    public static final int TITLE_MAX_LENGTH = 255;
+    public static final int DESCRIPTION_MAX_LENGTH = 5000;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @NotBlank
-    @Column(nullable = false)
+    @Size(max = TITLE_MAX_LENGTH)
+    @Column(nullable = false, length = TITLE_MAX_LENGTH)
     private String title;
 
+    @Size(max = DESCRIPTION_MAX_LENGTH)
     @Column(columnDefinition = "text")
     private String description;
 
@@ -54,49 +63,38 @@ public class Task {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     public Task(String title) {
-        this.title = title;
+        this(title, null, null, null);
     }
 
-    /**
-     * Builds a new task from client-supplied creation fields, applying the
-     * same default status/priority as the no-args path. Owning this here
-     * (rather than in the service layer) keeps creation invariants with the
-     * entity that enforces them.
-     */
-    public static Task create(NewTaskDetails details) {
-        Task task = new Task(details.title());
-        if (details.description() != null) {
-            task.setDescription(details.description());
-        }
-        if (details.priority() != null) {
-            task.setPriority(details.priority());
-        }
-        if (details.deadline() != null) {
-            task.setDeadline(details.deadline());
-        }
-        return task;
+    public Task(String title, String description, TaskPriority priority, LocalDate deadline) {
+        this.title = normalizeTitle(title);
+        this.description = validateDescription(description);
+        this.priority = Objects.requireNonNullElse(priority, TaskPriority.MEDIUM);
+        this.deadline = deadline;
     }
 
     public void setTitle(String title) {
         ensureEditable();
-        this.title = title;
+        this.title = normalizeTitle(title);
     }
 
     public void setDescription(String description) {
         ensureEditable();
-        this.description = description;
+        this.description = validateDescription(description);
     }
 
     public void setPriority(TaskPriority priority) {
         ensureEditable();
-        this.priority = priority;
+        this.priority = Objects.requireNonNull(priority, "priority must not be null");
     }
 
     public void setDeadline(LocalDate deadline) {
@@ -104,32 +102,36 @@ public class Task {
         this.deadline = deadline;
     }
 
-    @PrePersist
-    void onCreate() {
-        Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    void onUpdate() {
-        this.updatedAt = Instant.now();
-    }
-
     /**
-     * Marks this task as completed, stamping {@code completedAt}.
+     * Marks this task as completed at the given instant. Idempotent: completing an
+     * already-completed task keeps its original {@code completedAt}.
      */
-    public void complete() {
+    public void complete(Instant completedAt) {
+        Objects.requireNonNull(completedAt, "completedAt must not be null");
+        if (status == TaskStatus.COMPLETED) {
+            return;
+        }
         this.status = TaskStatus.COMPLETED;
-        this.completedAt = Instant.now();
+        this.completedAt = completedAt;
     }
 
     /**
-     * Reopens a completed task, clearing {@code completedAt} so it can be edited again.
+     * Reopens a completed task so it can be edited again. Idempotent: reopening an
+     * open task has no effect.
      */
     public void reopen() {
+        if (status == TaskStatus.OPEN) {
+            return;
+        }
         this.status = TaskStatus.OPEN;
         this.completedAt = null;
+    }
+
+    /**
+     * Whether this task is still open and its deadline is before {@code today}.
+     */
+    public boolean isOverdue(LocalDate today) {
+        return status == TaskStatus.OPEN && deadline != null && deadline.isBefore(today);
     }
 
     private void ensureEditable() {
@@ -138,12 +140,23 @@ public class Task {
         }
     }
 
-    /**
-     * Whether this task is overdue: still open and its deadline has passed.
-     * This is a computed, non-persisted property.
-     */
-    public boolean isOverdue() {
-        return status == TaskStatus.OPEN && deadline != null && deadline.isBefore(LocalDate.now());
+    private static String normalizeTitle(String title) {
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("title must not be blank");
+        }
+        String normalized = title.strip();
+        if (normalized.length() > TITLE_MAX_LENGTH) {
+            throw new IllegalArgumentException("title must be at most %d characters".formatted(TITLE_MAX_LENGTH));
+        }
+        return normalized;
+    }
+
+    private static String validateDescription(String description) {
+        if (description != null && description.length() > DESCRIPTION_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                    "description must be at most %d characters".formatted(DESCRIPTION_MAX_LENGTH));
+        }
+        return description;
     }
 
     @Override

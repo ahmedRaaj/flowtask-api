@@ -1,12 +1,9 @@
-package com.flowtask.api.controller;
+package com.flowtask.api.task.web;
 
-import com.flowtask.api.controller.dto.CreateTaskRequest;
-import com.flowtask.api.controller.dto.PingResponse;
-import com.flowtask.api.controller.dto.TaskResponse;
-import com.flowtask.api.controller.mapper.TaskMapper;
-import com.flowtask.api.domain.Task;
-import com.flowtask.api.service.TaskService;
+import com.flowtask.api.task.Task;
+import com.flowtask.api.task.TaskService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,24 +13,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
-@RestController("taskController")
+@RestController
 @RequestMapping("/api/v1/tasks")
+@RequiredArgsConstructor
 public class TaskController {
 
     private final TaskService taskService;
     private final TaskMapper taskMapper;
 
-    public TaskController(TaskService taskService, TaskMapper taskMapper) {
-        this.taskService = taskService;
-        this.taskMapper = taskMapper;
-    }
-
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody CreateTaskRequest request) {
-        Task task = taskService.createTask(taskMapper.toNewTaskDetails(request));
-        var location = ServletUriComponentsBuilder.fromCurrentRequest()
+        Task task = taskService.createTask(taskMapper.toCommand(request));
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(task.getId())
                 .toUri();

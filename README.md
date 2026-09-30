@@ -59,6 +59,22 @@ A local PostgreSQL instance is provided via `compose.yaml` (works with OrbStack,
 ./mvnw test
 ```
 
+## Project structure
+
+Code is organised by feature rather than by technical layer. Each feature package owns its domain model, service, and persistence; its HTTP adapter lives in a `web` subpackage. Cross-cutting infrastructure lives in `common`.
+
+```
+com.flowtask.api
+├── common/
+│   ├── config/      Shared beans (Clock, JPA auditing)
+│   ├── exception/   Base exception types
+│   └── web/         Global error handling (RFC 9457 problem details)
+└── task/            Task entity, service, command, repository (package-private)
+    └── web/         Controller, request/response DTOs, mapper
+```
+
+New features (e.g. `project/`) are added as sibling packages following the same shape.
+
 ## Available endpoints
 
 | Endpoint | Purpose |
@@ -69,7 +85,7 @@ A local PostgreSQL instance is provided via `compose.yaml` (works with OrbStack,
 | `GET /api/v1/tasks` | Lists all tasks |
 | `GET /api/v1/tasks/{id}` | Retrieves one task |
 
-Create a task by sending a nonblank title. Description, priority, and deadline are optional; priority defaults to `MEDIUM`, and new tasks start with `OPEN` status.
+Create a task by sending a nonblank title of at most 255 characters (surrounding whitespace is trimmed). Description (at most 5,000 characters), priority, and deadline are optional; priority defaults to `MEDIUM`, and new tasks start with `OPEN` status.
 
 ```http
 POST /api/v1/tasks
@@ -102,7 +118,24 @@ The API responds with `201 Created`, a `Location` header for the new resource, a
 }
 ```
 
-`GET /api/v1/tasks` returns all tasks as a JSON array. `GET /api/v1/tasks/{id}` returns one task; an unknown ID returns `404 Not Found`. Invalid creation input returns `400 Bad Request`.
+`GET /api/v1/tasks` returns all tasks as a JSON array, newest first. `GET /api/v1/tasks/{id}` returns one task.
+
+### Errors
+
+Errors use the [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` format. An unknown task ID returns `404 Not Found`; invalid input returns `400 Bad Request`, with validation failures listed per field:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Invalid request content.",
+  "instance": "/api/v1/tasks",
+  "errors": [
+    { "field": "title", "message": "must not be blank" }
+  ]
+}
+```
 
 Example ping response:
 
