@@ -3,6 +3,7 @@ package com.flowtask.api.task;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -136,7 +137,7 @@ class TaskTest {
         task.complete(NOW);
 
         assertThatThrownBy(() -> edit.accept(task))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(TaskNotEditableException.class)
                 .hasMessage("Completed tasks must be reopened before they can be edited");
         assertThat(task.getTitle()).isEqualTo("Ship release");
         assertThat(task.getDescription()).isEqualTo("Initial description");
@@ -152,13 +153,77 @@ class TaskTest {
         task.reopen();
 
         edit.accept(task);
+
+        assertThat(task.getStatus()).isEqualTo(TaskStatus.OPEN);
     }
 
     static Stream<Named<Consumer<Task>>> edits() {
         return Stream.of(
-                Named.of("title", task -> task.setTitle("Changed title")),
-                Named.of("description", task -> task.setDescription("Changed description")),
-                Named.of("priority", task -> task.setPriority(TaskPriority.HIGH)),
-                Named.of("deadline", task -> task.setDeadline(TODAY.plusDays(1))));
+                Named.of("title", task -> task.updateDetails(
+                        "Changed title", task.getDescription(), task.getPriority(), task.getDeadline())),
+                Named.of("description", task -> task.updateDetails(
+                        task.getTitle(), "Changed description", task.getPriority(), task.getDeadline())),
+                Named.of("priority", task -> task.updateDetails(
+                        task.getTitle(), task.getDescription(), TaskPriority.HIGH, task.getDeadline())),
+                Named.of("deadline", task -> task.updateDetails(
+                        task.getTitle(), task.getDescription(), task.getPriority(), TODAY.plusDays(1))));
+    }
+
+    @Test
+    void updateDetailsReplacesAllEditableFields() {
+        Task task = new Task("Ship release", "Initial description", TaskPriority.LOW, TODAY);
+
+        task.updateDetails("  Ship v2  ", "Updated description", TaskPriority.HIGH, TODAY.plusDays(7));
+
+        assertThat(task.getTitle()).isEqualTo("Ship v2");
+        assertThat(task.getDescription()).isEqualTo("Updated description");
+        assertThat(task.getPriority()).isEqualTo(TaskPriority.HIGH);
+        assertThat(task.getDeadline()).isEqualTo(TODAY.plusDays(7));
+        assertThat(task.getStatus()).isEqualTo(TaskStatus.OPEN);
+    }
+
+    @Test
+    void updateDetailsClearsOptionalFieldsWhenNull() {
+        Task task = new Task("Ship release", "Initial description", TaskPriority.LOW, TODAY);
+
+        task.updateDetails("Ship release", null, TaskPriority.LOW, null);
+
+        assertThat(task.getDescription()).isNull();
+        assertThat(task.getDeadline()).isNull();
+    }
+
+    @Test
+    void updateDetailsAllowsPastDeadline() {
+        Task task = new Task("Pay invoice");
+
+        task.updateDetails("Pay invoice", null, TaskPriority.MEDIUM, TODAY.minusDays(3));
+
+        assertThat(task.getDeadline()).isEqualTo(TODAY.minusDays(3));
+        assertThat(task.isOverdue(TODAY)).isTrue();
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidDetails")
+    void updateDetailsIsAtomicWhenAnyValueIsInvalid(Consumer<Task> invalidEdit, Class<? extends Throwable> expected) {
+        Task task = new Task("Ship release", "Initial description", TaskPriority.LOW, TODAY);
+
+        assertThatThrownBy(() -> invalidEdit.accept(task)).isInstanceOf(expected);
+
+        assertThat(task.getTitle()).isEqualTo("Ship release");
+        assertThat(task.getDescription()).isEqualTo("Initial description");
+        assertThat(task.getPriority()).isEqualTo(TaskPriority.LOW);
+        assertThat(task.getDeadline()).isEqualTo(TODAY);
+    }
+
+    static Stream<Arguments> invalidDetails() {
+        String tooLongDescription = "a".repeat(Task.DESCRIPTION_MAX_LENGTH + 1);
+        return Stream.of(
+                Arguments.of(Named.<Consumer<Task>>of("blank title", task -> task.updateDetails(
+                        "   ", "Changed", TaskPriority.HIGH, TODAY.plusDays(1))), IllegalArgumentException.class),
+                Arguments.of(Named.<Consumer<Task>>of("too long description", task -> task.updateDetails(
+                        "Changed", tooLongDescription, TaskPriority.HIGH, TODAY.plusDays(1))),
+                        IllegalArgumentException.class),
+                Arguments.of(Named.<Consumer<Task>>of("null priority", task -> task.updateDetails(
+                        "Changed", "Changed", null, TODAY.plusDays(1))), NullPointerException.class));
     }
 }

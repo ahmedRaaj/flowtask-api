@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -46,8 +47,8 @@ public class Task {
     @Column(columnDefinition = "text")
     private String description;
 
-    // No setter: status only changes via complete()/reopen() to enforce
-    // the "completed tasks are immutable until reopened" business rule.
+    // No setters on this entity: details change only via updateDetails() and status only via
+    // complete()/reopen(), which enforce the "completed tasks are immutable until reopened" rule.
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -71,6 +72,10 @@ public class Task {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Version
+    @Column(nullable = false)
+    private long version;
+
     public Task(String title) {
         this(title, null, null, null);
     }
@@ -82,23 +87,22 @@ public class Task {
         this.deadline = deadline;
     }
 
-    public void setTitle(String title) {
+    /**
+     * Replaces all user-editable details in one step. {@code description} and {@code deadline} may be
+     * {@code null} to clear them. Every value is validated before any field changes, so a rejected
+     * edit leaves the task untouched.
+     *
+     * @throws TaskNotEditableException if the task is completed and has not been reopened
+     */
+    public void updateDetails(String title, String description, TaskPriority priority, LocalDate deadline) {
         ensureEditable();
-        this.title = normalizeTitle(title);
-    }
+        String normalizedTitle = normalizeTitle(title);
+        String validatedDescription = validateDescription(description);
+        Objects.requireNonNull(priority, "priority must not be null");
 
-    public void setDescription(String description) {
-        ensureEditable();
-        this.description = validateDescription(description);
-    }
-
-    public void setPriority(TaskPriority priority) {
-        ensureEditable();
-        this.priority = Objects.requireNonNull(priority, "priority must not be null");
-    }
-
-    public void setDeadline(LocalDate deadline) {
-        ensureEditable();
+        this.title = normalizedTitle;
+        this.description = validatedDescription;
+        this.priority = priority;
         this.deadline = deadline;
     }
 
@@ -136,7 +140,7 @@ public class Task {
 
     private void ensureEditable() {
         if (status == TaskStatus.COMPLETED) {
-            throw new IllegalStateException("Completed tasks must be reopened before they can be edited");
+            throw new TaskNotEditableException();
         }
     }
 

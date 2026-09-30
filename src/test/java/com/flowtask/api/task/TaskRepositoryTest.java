@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Duration;
@@ -88,11 +89,71 @@ class TaskRepositoryTest {
         Task task = entityManager.persistFlushFind(new Task("Refactor service layer"));
 
         clock.advance(Duration.ofMinutes(5));
-        task.setDescription("Split into smaller classes");
+        task.updateDetails(task.getTitle(), "Split into smaller classes", task.getPriority(), task.getDeadline());
         Task reloaded = flushAndReload(task);
 
         assertThat(reloaded.getCreatedAt()).isEqualTo(T0);
         assertThat(reloaded.getUpdatedAt()).isEqualTo(T0.plus(Duration.ofMinutes(5)));
+    }
+
+    @Test
+    void persistsUpdatedDetails() {
+        Task task = entityManager.persistFlushFind(
+                new Task("Ship release", "Initial description", TaskPriority.LOW, LocalDate.of(2026, 10, 1)));
+
+        task.updateDetails("Ship v2", null, TaskPriority.HIGH, null);
+        Task reloaded = flushAndReload(task);
+
+        assertThat(reloaded.getTitle()).isEqualTo("Ship v2");
+        assertThat(reloaded.getDescription()).isNull();
+        assertThat(reloaded.getPriority()).isEqualTo(TaskPriority.HIGH);
+        assertThat(reloaded.getDeadline()).isNull();
+    }
+
+    @Test
+    void startsAtVersionZeroAndIncrementsOnEachChange() {
+        Task task = entityManager.persistFlushFind(new Task("Ship release"));
+        assertThat(task.getVersion()).isZero();
+
+        task.updateDetails("Ship v2", null, TaskPriority.HIGH, null);
+        Task updated = flushAndReload(task);
+        assertThat(updated.getVersion()).isEqualTo(1);
+
+        updated.complete(T0);
+        assertThat(flushAndReload(updated).getVersion()).isEqualTo(2);
+    }
+
+    @Test
+    void noOpChangesDoNotBumpVersionOrUpdatedAt() {
+        Task task = entityManager.persistFlushFind(new Task("Ship release", null, TaskPriority.LOW, null));
+        task.complete(T0);
+        Task completed = flushAndReload(task);
+
+        clock.advance(Duration.ofMinutes(5));
+        completed.complete(T0.plus(Duration.ofMinutes(5)));
+        Task reloaded = flushAndReload(completed);
+
+        assertThat(reloaded.getVersion()).isEqualTo(1);
+        assertThat(reloaded.getUpdatedAt()).isEqualTo(T0);
+        assertThat(reloaded.getCompletedAt()).isEqualTo(T0);
+
+        reloaded.reopen();
+        Task reopened = flushAndReload(reloaded);
+        reopened.updateDetails(reopened.getTitle(), reopened.getDescription(), reopened.getPriority(),
+                reopened.getDeadline());
+
+        assertThat(flushAndReload(reopened).getVersion()).isEqualTo(2);
+    }
+
+    @Test
+    void rejectsWriteBasedOnStaleVersion() {
+        Task task = entityManager.persistFlushFind(new Task("Ship release"));
+        jdbcTemplate.update("UPDATE tasks SET version = version + 1 WHERE id = ?", task.getId());
+
+        task.updateDetails("Ship v2", null, TaskPriority.HIGH, null);
+
+        assertThatThrownBy(() -> taskRepository.saveAndFlush(task))
+                .isInstanceOf(OptimisticLockingFailureException.class);
     }
 
     @Test
